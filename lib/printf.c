@@ -1,11 +1,13 @@
 #include "printf.h"
 #include "vga.h"
 #include <stdarg.h>
+#include <stdint.h>
 
 static void print_number(int num)
 {
     char buf[32];
     int i = 0;
+    unsigned int unum = (unsigned int)num;
 
     if (num == 0)
     {
@@ -16,13 +18,13 @@ static void print_number(int num)
     if (num < 0)
     {
         vga_put_char('-');
-        num = -num;
+        unum = ~unum + 1;
     }
 
-    while (num > 0)
+    while (unum > 0)
     {
-        buf[i++] = '0' + (num % 10);
-        num /= 10;
+        buf[i++] = '0' + (unum % 10);
+        unum /= 10;
     }
 
     for (int j = i - 1; j >= 0; j--)
@@ -46,25 +48,44 @@ static void print_hex(unsigned int num)
     }
 }
 
-static void handle_ansi(const char **fmt)
+static void print_ptr(uintptr_t ptr)
 {
-    (*fmt)++;
+    vga_write("0x");
 
-    if (**fmt != '[')
-        return;
+    char hex[] = "0123456789ABCDEF";
+    int started = 0;
 
-    (*fmt)++;
+    for (int i = (sizeof(ptr) * 8) - 4; i >= 0; i -= 4)
+    {
+        int digit = (ptr >> i) & 0xF;
+
+        if (digit != 0 || started || i == 0)
+        {
+            started = 1;
+            vga_put_char(hex[digit]);
+        }
+    }
+}
+
+static int handle_ansi(const char **fmt)
+{
+    const char *p = *fmt + 1;
+
+    if (*p != '[')
+        return 0;
+
+    p++;
 
     int code = 0;
 
-    while (**fmt >= '0' && **fmt <= '9')
+    while (*p >= '0' && *p <= '9')
     {
-        code = code * 10 + (**fmt - '0');
-        (*fmt)++;
+        code = code * 10 + (*p - '0');
+        p++;
     }
 
-    if (**fmt != 'm')
-        return;
+    if (*p != 'm')
+        return 0;
 
     switch (code)
     {
@@ -78,6 +99,9 @@ static void handle_ansi(const char **fmt)
         case 37: vga_set_color(0x07); break;
         case 0:  vga_set_color(0x0F); break;
     }
+
+    *fmt = p;
+    return 1;
 }
 
 void vprintf(const char *fmt, va_list args)
@@ -86,7 +110,12 @@ void vprintf(const char *fmt, va_list args)
     {
         if (*fmt == '\033')
         {
-            handle_ansi(&fmt);
+            if (handle_ansi(&fmt))
+            {
+                fmt++;
+                continue;
+            }
+            vga_put_char(*fmt);
         }
         else if (*fmt == '%')
         {
@@ -100,6 +129,10 @@ void vprintf(const char *fmt, va_list args)
 
                 case 'x':
                     print_hex(va_arg(args, unsigned int));
+                    break;
+
+                case 'p':
+                    print_ptr((uintptr_t)va_arg(args, void *));
                     break;
 
                 case 's':

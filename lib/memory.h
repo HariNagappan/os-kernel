@@ -9,5 +9,6 @@ size_t strlen(const char *str);
 int strcmp(const char *a, const char *b);
 char *strcpy(char *dest, const char *src);
 int memcmp(const void *a, const void *b, size_t n);
+void *memmove(void *dest, const void *src, size_t n);
 
 #endif

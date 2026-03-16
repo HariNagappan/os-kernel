@@ -107,6 +107,10 @@ void vga_put_char(char c)
     {
         handle_tab();
     }
+    else if (c == '\r')
+    {
+        cursor_col = 0;
+    }
     else
     {
         VGA_MEMORY[cursor_row * VGA_WIDTH + cursor_col] =
