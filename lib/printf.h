@@ -6,4 +6,6 @@
 void printf(const char *fmt, ...);
 void vprintf(const char *fmt, va_list args);
 
+#define printk printf
+
 #endif

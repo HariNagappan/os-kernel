@@ -1,10 +1,13 @@
 #include "vga.h"
+#include "../include/spinlock.h"
 
 static volatile uint16_t *VGA_MEMORY = (uint16_t *)0xB8000;
 
 static int cursor_row = 0;
 static int cursor_col = 0;
 static uint8_t color = 0x0F;
+
+static spinlock_t vga_lock;
 
 static inline uint16_t vga_entry(char c, uint8_t color)
 {
@@ -50,11 +53,14 @@ static void scroll()
 
 void vga_set_color(uint8_t c)
 {
+    spinlock_acquire(&vga_lock);
     color = c;
+    spinlock_release(&vga_lock);
 }
 
 void vga_clear()
 {
+    spinlock_acquire(&vga_lock);
     for (int y = 0; y < VGA_HEIGHT; y++)
         for (int x = 0; x < VGA_WIDTH; x++)
             VGA_MEMORY[y * VGA_WIDTH + x] = vga_entry(' ', color);
@@ -63,6 +69,7 @@ void vga_clear()
     cursor_col = 0;
 
     update_cursor();
+    spinlock_release(&vga_lock);
 }
 
 static void handle_backspace()
@@ -94,6 +101,7 @@ static void handle_tab()
 
 void vga_put_char(char c)
 {
+    spinlock_acquire(&vga_lock);
     if (c == '\n')
     {
         cursor_col = 0;
@@ -129,16 +137,58 @@ void vga_put_char(char c)
         scroll();
 
     update_cursor();
+    spinlock_release(&vga_lock);
 }
 
 void vga_write(const char *str)
 {
     while (*str)
-        vga_put_char(*str++);
+    {
+        spinlock_acquire(&vga_lock);
+
+        if (*str == '\n')
+        {
+            cursor_col = 0;
+            cursor_row++;
+        }
+        else if (*str == '\b')
+        {
+            handle_backspace();
+        }
+        else if (*str == '\t')
+        {
+            handle_tab();
+        }
+        else if (*str == '\r')
+        {
+            cursor_col = 0;
+        }
+        else
+        {
+            VGA_MEMORY[cursor_row * VGA_WIDTH + cursor_col] =
+                vga_entry(*str, color);
+
+            cursor_col++;
+
+            if (cursor_col >= VGA_WIDTH)
+            {
+                cursor_col = 0;
+                cursor_row++;
+            }
+        }
+
+        if (cursor_row >= VGA_HEIGHT)
+            scroll();
+
+        update_cursor();
+        spinlock_release(&vga_lock);
+        str++;
+    }
 }
 
 void vga_init()
 {
+    spinlock_init(&vga_lock);
     color = 0x0F;
     vga_clear();
 }
