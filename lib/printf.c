@@ -80,11 +80,8 @@ static void handle_ansi(const char **fmt)
     }
 }
 
-void printf(const char *fmt, ...)
+void vprintf(const char *fmt, va_list args)
 {
-    va_list args;
-    va_start(args, fmt);
-
     while (*fmt)
     {
         if (*fmt == '\033')
@@ -124,6 +121,13 @@ void printf(const char *fmt, ...)
 
         fmt++;
     }
+}
 
+void printf(const char *fmt, ...)
+{
+    va_list args;
+
+    va_start(args, fmt);
+    vprintf(fmt, args);
     va_end(args);
 }
