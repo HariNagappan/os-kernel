@@ -1,6 +1,6 @@
 #include "vga.h"
 
-static volatile uint16_t* VGA_MEMORY = (uint16_t*)0xB8000;
+static volatile uint16_t *VGA_MEMORY = (uint16_t *)0xB8000;
 
 static int cursor_row = 0;
 static int cursor_col = 0;
@@ -42,10 +42,8 @@ static void scroll()
     }
 
     for (int x = 0; x < VGA_WIDTH; x++)
-    {
         VGA_MEMORY[(VGA_HEIGHT - 1) * VGA_WIDTH + x] =
             vga_entry(' ', color);
-    }
 
     cursor_row = VGA_HEIGHT - 1;
 }
@@ -67,12 +65,47 @@ void vga_clear()
     update_cursor();
 }
 
+static void handle_backspace()
+{
+    if (cursor_col > 0)
+    {
+        cursor_col--;
+    }
+    else if (cursor_row > 0)
+    {
+        cursor_row--;
+        cursor_col = VGA_WIDTH - 1;
+    }
+
+    VGA_MEMORY[cursor_row * VGA_WIDTH + cursor_col] =
+        vga_entry(' ', color);
+}
+
+static void handle_tab()
+{
+    cursor_col = (cursor_col + TAB_WIDTH) & ~(TAB_WIDTH - 1);
+
+    if (cursor_col >= VGA_WIDTH)
+    {
+        cursor_col = 0;
+        cursor_row++;
+    }
+}
+
 void vga_put_char(char c)
 {
     if (c == '\n')
     {
         cursor_col = 0;
         cursor_row++;
+    }
+    else if (c == '\b')
+    {
+        handle_backspace();
+    }
+    else if (c == '\t')
+    {
+        handle_tab();
     }
     else
     {
@@ -94,7 +127,7 @@ void vga_put_char(char c)
     update_cursor();
 }
 
-void vga_write(const char* str)
+void vga_write(const char *str)
 {
     while (*str)
         vga_put_char(*str++);
@@ -102,6 +135,6 @@ void vga_write(const char* str)
 
 void vga_init()
 {
-    vga_set_color(0x0F);
+    color = 0x0F;
     vga_clear();
 }
