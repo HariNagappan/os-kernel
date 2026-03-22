@@ -1,19 +1,40 @@
 #include "memory.h"
 
-void* memcpy(void* dest, const void* src, size_t n)
+void *memcpy(void *dest, const void *src, size_t n)
 {
-    unsigned char* d = dest;
-    const unsigned char* s = src;
+    unsigned char *d = dest;
+    const unsigned char *s = src;
 
     for (size_t i = 0; i < n; i++)
         d[i] = s[i];
 
     return dest;
 }
+#include <stddef.h>
 
-void* memset(void* dest, int value, size_t n)
+void *memmove(void *dest, const void *src, size_t n)
 {
-    unsigned char* d = dest;
+    unsigned char *d = dest;
+    const unsigned char *s = src;
+
+    if (d < s)
+    {
+        // forward copy
+        for (size_t i = 0; i < n; i++)
+            d[i] = s[i];
+    }
+    else
+    {
+        // backward copy (handles overlap)
+        for (size_t i = n; i != 0; i--)
+            d[i - 1] = s[i - 1];
+    }
+    return dest;
+}
+
+void *memset(void *dest, int value, size_t n)
+{
+    unsigned char *d = dest;
 
     for (size_t i = 0; i < n; i++)
         d[i] = (unsigned char)value;
@@ -39,14 +60,15 @@ int strcmp(const char *a, const char *b)
         b++;
     }
 
-    return *(unsigned char*)a - *(unsigned char*)b;
+    return *(unsigned char *)a - *(unsigned char *)b;
 }
 
 char *strcpy(char *dest, const char *src)
 {
     char *d = dest;
 
-    while ((*d++ = *src++));
+    while ((*d++ = *src++))
+        ;
 
     return dest;
 }
