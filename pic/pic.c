@@ -15,6 +15,8 @@
 
 /* ICW4: 8086 mode */
 #define ICW4_8086 0x01
+#define PIC1 0x20
+#define PIC2 0xA0
 
 static inline void outb(uint16_t port, uint8_t val)
 {
@@ -127,4 +129,22 @@ void pic_unmask_irq(uint8_t irq)
         bit = irq - 8;
     }
     outb(port, inb(port) & ~(1 << bit));
+}
+
+void pic_remap()
+{
+    outb(PIC1, 0x11);
+    outb(PIC2, 0x11);
+
+    outb(PIC1 + 1, 0x20);
+    outb(PIC2 + 1, 0x28);
+
+    outb(PIC1 + 1, 0x04);
+    outb(PIC2 + 1, 0x02);
+
+    outb(PIC1 + 1, 0x01);
+    outb(PIC2 + 1, 0x01);
+
+    outb(PIC1 + 1, 0x0);
+    outb(PIC2 + 1, 0x0);
 }

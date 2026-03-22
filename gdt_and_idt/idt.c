@@ -1,6 +1,8 @@
 #include "idt.h"
-#include <string.h>   /* memset */
+#include <string.h> /* memset */
+#include "idt.h"
 
+extern void idt_flush(uint32_t);
 /*
  * idt[] — the 256-entry table that lives in memory.
  * The CPU indexes into this on every interrupt.
@@ -38,11 +40,11 @@ void idt_set_entry(uint8_t vector, uint32_t handler,
 {
     idt_entry_t *e = &idt[vector];
 
-    e->offset_low  =  handler        & 0xFFFF;   /* lower 16 bits of handler address */
-    e->offset_high = (handler >> 16) & 0xFFFF;   /* upper 16 bits of handler address */
-    e->selector    = selector;                    /* must be kernel code segment 0x08 */
-    e->zero        = 0;                           /* reserved — always 0              */
-    e->type_attr   = type_attr;                   /* P | DPL | gate type              */
+    e->offset_low = handler & 0xFFFF;          /* lower 16 bits of handler address */
+    e->offset_high = (handler >> 16) & 0xFFFF; /* upper 16 bits of handler address */
+    e->selector = selector;                    /* must be kernel code segment 0x08 */
+    e->zero = 0;                               /* reserved — always 0              */
+    e->type_attr = type_attr;                  /* P | DPL | gate type              */
 }
 
 /*
@@ -75,10 +77,13 @@ void idt_register_handler(uint8_t vector, isr_handler_t fn)
  */
 void isr_common_handler(interrupt_frame_t *frame)
 {
-    if (isr_handlers[frame->int_no] != 0) {
+    if (isr_handlers[frame->int_no] != 0)
+    {
         /* Call the registered C handler, passing the full CPU state */
         isr_handlers[frame->int_no](frame);
-    } else {
+    }
+    else
+    {
         /*
          * Unhandled interrupt.
          * In a real kernel: print frame->int_no, frame->err_code,
@@ -102,12 +107,12 @@ void isr_common_handler(interrupt_frame_t *frame)
 void idt_init(void)
 {
     /* Zero everything — unset entries are "not present" (P=0) */
-    memset(idt,          0, sizeof(idt));
+    memset(idt, 0, sizeof(idt));
     memset(isr_handlers, 0, sizeof(isr_handlers));
 
     /* Build IDTR: size = (256 × 8) − 1 = 2047 */
     idt_ptr.limit = (uint16_t)(sizeof(idt_entry_t) * IDT_ENTRY_COUNT - 1);
-    idt_ptr.base  = (uint32_t)&idt;
+    idt_ptr.base = (uint32_t)&idt;
 
     /*
      * ── CPU EXCEPTION GATES (vectors 0–21) ───────────────────────────
@@ -120,16 +125,16 @@ void idt_init(void)
      * Our ISR_NO_ERR macro pushes a dummy 0 for the rest to keep
      * interrupt_frame_t layout uniform.
      */
-    idt_set_entry( 0, (uint32_t)isr0,  0x08, IDT_KERNEL_INTERRUPT); /* #DE  Divide-by-Zero            */
-    idt_set_entry( 1, (uint32_t)isr1,  0x08, IDT_KERNEL_TRAP);      /* #DB  Debug (trap gate)         */
-    idt_set_entry( 2, (uint32_t)isr2,  0x08, IDT_KERNEL_INTERRUPT); /* NMI                            */
-    idt_set_entry( 3, (uint32_t)isr3,  0x08, IDT_KERNEL_TRAP);      /* #BP  Breakpoint (trap gate)    */
-    idt_set_entry( 4, (uint32_t)isr4,  0x08, IDT_KERNEL_INTERRUPT); /* #OF  Overflow                  */
-    idt_set_entry( 5, (uint32_t)isr5,  0x08, IDT_KERNEL_INTERRUPT); /* #BR  Bound Range               */
-    idt_set_entry( 6, (uint32_t)isr6,  0x08, IDT_KERNEL_INTERRUPT); /* #UD  Invalid Opcode            */
-    idt_set_entry( 7, (uint32_t)isr7,  0x08, IDT_KERNEL_INTERRUPT); /* #NM  Device Not Available      */
-    idt_set_entry( 8, (uint32_t)isr8,  0x08, IDT_KERNEL_INTERRUPT); /* #DF  Double Fault        (*)   */
-    idt_set_entry( 9, (uint32_t)isr9,  0x08, IDT_KERNEL_INTERRUPT); /* Coprocessor Overrun (legacy)   */
+    idt_set_entry(0, (uint32_t)isr0, 0x08, IDT_KERNEL_INTERRUPT);   /* #DE  Divide-by-Zero            */
+    idt_set_entry(1, (uint32_t)isr1, 0x08, IDT_KERNEL_TRAP);        /* #DB  Debug (trap gate)         */
+    idt_set_entry(2, (uint32_t)isr2, 0x08, IDT_KERNEL_INTERRUPT);   /* NMI                            */
+    idt_set_entry(3, (uint32_t)isr3, 0x08, IDT_KERNEL_TRAP);        /* #BP  Breakpoint (trap gate)    */
+    idt_set_entry(4, (uint32_t)isr4, 0x08, IDT_KERNEL_INTERRUPT);   /* #OF  Overflow                  */
+    idt_set_entry(5, (uint32_t)isr5, 0x08, IDT_KERNEL_INTERRUPT);   /* #BR  Bound Range               */
+    idt_set_entry(6, (uint32_t)isr6, 0x08, IDT_KERNEL_INTERRUPT);   /* #UD  Invalid Opcode            */
+    idt_set_entry(7, (uint32_t)isr7, 0x08, IDT_KERNEL_INTERRUPT);   /* #NM  Device Not Available      */
+    idt_set_entry(8, (uint32_t)isr8, 0x08, IDT_KERNEL_INTERRUPT);   /* #DF  Double Fault        (*)   */
+    idt_set_entry(9, (uint32_t)isr9, 0x08, IDT_KERNEL_INTERRUPT);   /* Coprocessor Overrun (legacy)   */
     idt_set_entry(10, (uint32_t)isr10, 0x08, IDT_KERNEL_INTERRUPT); /* #TS  Invalid TSS         (*)   */
     idt_set_entry(11, (uint32_t)isr11, 0x08, IDT_KERNEL_INTERRUPT); /* #NP  Seg Not Present     (*)   */
     idt_set_entry(12, (uint32_t)isr12, 0x08, IDT_KERNEL_INTERRUPT); /* #SS  Stack-Segment Fault (*)   */
@@ -150,16 +155,16 @@ void idt_init(void)
      * They only work correctly AFTER pic_remap(0x20, 0x28)
      * which remaps IRQ0–7 → 0x20 (32) and IRQ8–15 → 0x28 (40).
      */
-    idt_set_entry(32, (uint32_t)irq0,  0x08, IDT_KERNEL_INTERRUPT); /* IRQ0  PIT Timer          */
-    idt_set_entry(33, (uint32_t)irq1,  0x08, IDT_KERNEL_INTERRUPT); /* IRQ1  Keyboard           */
-    idt_set_entry(34, (uint32_t)irq2,  0x08, IDT_KERNEL_INTERRUPT); /* IRQ2  PIC Cascade        */
-    idt_set_entry(35, (uint32_t)irq3,  0x08, IDT_KERNEL_INTERRUPT); /* IRQ3  COM2               */
-    idt_set_entry(36, (uint32_t)irq4,  0x08, IDT_KERNEL_INTERRUPT); /* IRQ4  COM1               */
-    idt_set_entry(37, (uint32_t)irq5,  0x08, IDT_KERNEL_INTERRUPT); /* IRQ5  LPT2               */
-    idt_set_entry(38, (uint32_t)irq6,  0x08, IDT_KERNEL_INTERRUPT); /* IRQ6  Floppy             */
-    idt_set_entry(39, (uint32_t)irq7,  0x08, IDT_KERNEL_INTERRUPT); /* IRQ7  LPT1 / Spurious    */
-    idt_set_entry(40, (uint32_t)irq8,  0x08, IDT_KERNEL_INTERRUPT); /* IRQ8  RTC                */
-    idt_set_entry(41, (uint32_t)irq9,  0x08, IDT_KERNEL_INTERRUPT); /* IRQ9  Free               */
+    idt_set_entry(32, (uint32_t)irq0, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ0  PIT Timer          */
+    idt_set_entry(33, (uint32_t)irq1, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ1  Keyboard           */
+    idt_set_entry(34, (uint32_t)irq2, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ2  PIC Cascade        */
+    idt_set_entry(35, (uint32_t)irq3, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ3  COM2               */
+    idt_set_entry(36, (uint32_t)irq4, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ4  COM1               */
+    idt_set_entry(37, (uint32_t)irq5, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ5  LPT2               */
+    idt_set_entry(38, (uint32_t)irq6, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ6  Floppy             */
+    idt_set_entry(39, (uint32_t)irq7, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ7  LPT1 / Spurious    */
+    idt_set_entry(40, (uint32_t)irq8, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ8  RTC                */
+    idt_set_entry(41, (uint32_t)irq9, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ9  Free               */
     idt_set_entry(42, (uint32_t)irq10, 0x08, IDT_KERNEL_INTERRUPT); /* IRQ10 Free               */
     idt_set_entry(43, (uint32_t)irq11, 0x08, IDT_KERNEL_INTERRUPT); /* IRQ11 Free               */
     idt_set_entry(44, (uint32_t)irq12, 0x08, IDT_KERNEL_INTERRUPT); /* IRQ12 PS/2 Mouse         */
@@ -168,5 +173,25 @@ void idt_init(void)
     idt_set_entry(47, (uint32_t)irq15, 0x08, IDT_KERNEL_INTERRUPT); /* IRQ15 Secondary ATA      */
 
     /* Load IDTR and enable interrupts (sti is called inside idt_flush) */
+    idt_flush((uint32_t)&idt_ptr);
+}
+
+void idt_set_gate(int n, uint32_t handler)
+{
+    idt[n].offset_low = handler & 0xFFFF;
+    idt[n].selector = 0x08; // kernel code segment
+    idt[n].zero = 0;
+    idt[n].type_attr = 0x8E; // present, ring 0, interrupt gate
+    idt[n].offset_high = (handler >> 16) & 0xFFFF;
+}
+
+void idt_init()
+{
+    idt_ptr.limit = sizeof(idt) - 1;
+    idt_ptr.base = (uint32_t)&idt;
+
+    for (int i = 0; i < 256; i++)
+        idt_set_gate(i, 0);
+
     idt_flush((uint32_t)&idt_ptr);
 }
