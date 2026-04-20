@@ -21,6 +21,7 @@ SRC_DIR = .
 ARCH_X86_DIR = arch/x86
 CPU_DIR = cpu
 DRIVERS_VGA_DIR = drivers/vga
+DRIVERS_KEYBOARD_DIR = drivers/keyboard
 GDT_IDT_DIR = gdt_and_idt
 KERNEL_DIR = kernel
 LIB_DIR = lib
@@ -35,6 +36,7 @@ C_SOURCES = \
     $(SRC_DIR)/pcb.c \
     $(SRC_DIR)/scheduler.c \
     $(DRIVERS_VGA_DIR)/vga.c \
+	$(DRIVERS_KEYBOARD_DIR)/keyboard.c \
     $(CPU_DIR)/isr.c \
     $(GDT_IDT_DIR)/gdt.c \
     $(GDT_IDT_DIR)/idt.c \
@@ -74,6 +76,7 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)/boot
 	mkdir -p $(BUILD_DIR)/cpu
 	mkdir -p $(BUILD_DIR)/drivers/vga
+	mkdir -p $(BUILD_DIR)/drivers/keyboard
 	mkdir -p $(BUILD_DIR)/gdt_and_idt
 	mkdir -p $(BUILD_DIR)/kernel
 	mkdir -p $(BUILD_DIR)/lib

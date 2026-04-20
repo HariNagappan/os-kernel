@@ -9,6 +9,7 @@
 #include "time/time.h"
 #include "kmalloc.h" // add this at the top
 #include "tests.h"
+#include "drivers/keyboard/keyboard.h" // For keyboard_init()
 /*
  * These are the raw ASM entry points defined in cpu/isr_stub.asm.
  * The IDT (built in Phase 2) stores their addresses so the CPU knows
@@ -71,6 +72,8 @@ void kernel_main()
      *    This sets up all CPU exception handlers and hardware IRQ stubs. */
     idt_init();
     log_info("Interrupt Descriptor Table (IDT) initialized.");
+
+    keyboard_init(); // Initialize keyboard driver (registers IRQ1 handler)
 
     /* 5. Configure the Programmable Interval Timer (PIT) to fire IRQ0.
      *    Each tick calls irq0_timer_handler -> time_set_ticks(ticks + 1). */
