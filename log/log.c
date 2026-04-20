@@ -2,6 +2,7 @@
 #include "printf.h"
 #include "time.h"
 #include <stdarg.h>
+#include <stdint.h>
 
 static void print_timestamp()
 {

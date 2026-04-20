@@ -1,7 +1,7 @@
 #include "vga.h"
-#include "../include/spinlock.h"
-#include "../lib/printf.h" // For vga_printf implementation
-
+#include "../../include/spinlock.h"
+#include "../../lib/printf.h" // For vga_printf implementation
+#include "stdlib.h"
 static volatile uint16_t *VGA_MEMORY = (uint16_t *)0xB8000;
 
 static int cursor_row = 0;
@@ -17,7 +17,7 @@ static inline uint16_t vga_entry(char c, uint8_t color_byte)
 
 static inline void outb(uint16_t port, uint8_t val)
 {
-    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
+    __asm__ volatile("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
 static void update_cursor()
@@ -207,19 +207,20 @@ void vga_write(const char *str)
 }
 
 // Implement vga_printf using the printf backend and vga_put_char
-static int vga_printf_putc(char c, void *data) {
-    (void)data; // Unused
+static int vga_printf_putc(char c, void *data)
+{
+    (void)data;      // Unused
     vga_put_char(c); // vga_put_char handles its own locking
     return 1;
 }
 
-void vga_printf(const char *format, ...) {
+void vga_printf(const char *format, ...)
+{
     va_list args;
     va_start(args, format);
     tfp_format(NULL, vga_printf_putc, format, args);
     va_end(args);
 }
-
 
 void vga_init()
 {

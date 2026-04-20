@@ -2,6 +2,8 @@
 #include "lib/printf.h"
 #include "log/log.h"
 #include "gdt_and_idt/idt.h" // Include the IDT header
+#include "gdt_and_idt/gdt.h" // ← ADD THIS
+
 #include "pic/pic.h"
 #include "pit/pit.h"
 #include "time/time.h"
@@ -27,13 +29,15 @@ static void sleep_ms(uint32_t ms)
 {
     // Use the actual PIT frequency for more accurate sleep calculations
     uint32_t pit_hz = pit_get_frequency();
-    if (pit_hz == 0) {
+    if (pit_hz == 0)
+    {
         // Fallback or error if PIT not initialized or frequency is 0
         // For now, a simple busy loop, but ideally would use a working timer.
-        for (volatile uint32_t i = 0; i < ms * 1000; i++); // Very rough busy-wait
+        for (volatile uint32_t i = 0; i < ms * 1000; i++)
+            ; // Very rough busy-wait
         return;
     }
-    
+
     uint64_t start_ticks = time_get_ticks();
     // Calculate target ticks: (ms / 1000) * pit_hz = (ms * pit_hz) / 1000
     uint64_t target_ticks = start_ticks + (uint64_t)ms * pit_hz / 1000;
@@ -55,7 +59,7 @@ void kernel_main()
 
     /* 2. Initialize the Global Descriptor Table (GDT) if not already done by bootloader.
      *    (Assuming GDT is handled before kernel_main or is minimalistic) */
-    // gdt_init(); // Uncomment if your GDT requires C-level initialization here.
+    gdt_init(); // Uncomment if your GDT requires C-level initialization here.
 
     /* 3. Initialize and remap the Programmable Interrupt Controller (PIC)
      *    This ensures hardware IRQs don't collide with CPU exceptions. */

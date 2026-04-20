@@ -1,6 +1,6 @@
 #include "idt.h"
-#include <string.h> /* memset */
-#include "isr.h"    // Include isr.h for isr_unhandled_interrupt and other handlers
+#include <string.h>     /* memset */
+#include "../cpu/isr.h" // Include isr.h for isr_unhandled_interrupt and other handlers
 
 extern void idt_flush(uint32_t);
 /*
@@ -164,7 +164,7 @@ void idt_init(void)
     idt_set_entry(38, (uint32_t)irq6, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ6  Floppy             */
     idt_set_entry(39, (uint32_t)irq7, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ7  LPT1 / Spurious    */
     idt_set_entry(40, (uint32_t)irq8, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ8  RTC                */
-    idt_set_entry(41, (uint32_t)irq9, 0x08, IDT_KERNEL_INTERRUPT); /* IRQ9  Free               */
+    idt_set_entry(41, (uint32_t)irq9, 0x08, IDT_KERNEL_INTERRUPT);  /* IRQ9  Free               */
     idt_set_entry(42, (uint32_t)irq10, 0x08, IDT_KERNEL_INTERRUPT); /* IRQ10 Free               */
     idt_set_entry(43, (uint32_t)irq11, 0x08, IDT_KERNEL_INTERRUPT); /* IRQ11 Free               */
     idt_set_entry(44, (uint32_t)irq12, 0x08, IDT_KERNEL_INTERRUPT); /* IRQ12 PS/2 Mouse         */
@@ -185,12 +185,14 @@ void idt_init(void)
     // For all other interrupt vectors that haven't been explicitly assigned a handler,
     // register the generic unhandled interrupt handler. This ensures every interrupt
     // vector has a C-level handler function.
-    for (int i = 0; i < IDT_ENTRY_COUNT; i++) {
-        if (isr_handlers[i] == NULL) {
+    for (int i = 0; i < IDT_ENTRY_COUNT; i++)
+    {
+        if (isr_handlers[i] == NULL)
+        {
             isr_handlers[i] = isr_unhandled_interrupt;
         }
     }
-    
+
     /* Load IDTR and enable interrupts (sti is called inside idt_flush) */
     idt_flush((uint32_t)&idt_ptr);
 }
