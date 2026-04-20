@@ -46,7 +46,8 @@ C_SOURCES = \
     $(PIC_DIR)/pic.c \
     $(PIT_DIR)/pit.c \
     $(TIME_DIR)/time.c \
-    $(KERNEL_DIR)/stubs.c
+    $(KERNEL_DIR)/stubs.c \
+    $(KERNEL_DIR)/tests.c
 
 ASM_SOURCES = \
     boot/boot.asm \

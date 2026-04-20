@@ -7,7 +7,8 @@
 #include "pic/pic.h"
 #include "pit/pit.h"
 #include "time/time.h"
-
+#include "kmalloc.h" // add this at the top
+#include "tests.h"
 /*
  * These are the raw ASM entry points defined in cpu/isr_stub.asm.
  * The IDT (built in Phase 2) stores their addresses so the CPU knows
@@ -59,8 +60,9 @@ void kernel_main()
 
     /* 2. Initialize the Global Descriptor Table (GDT) if not already done by bootloader.
      *    (Assuming GDT is handled before kernel_main or is minimalistic) */
-    gdt_init(); // Uncomment if your GDT requires C-level initialization here.
-
+    gdt_init();                           // Uncomment if your GDT requires C-level initialization here.
+    kmalloc_init(0x00200000, 0x00100000); // 1MB heap starting at 2MB mark
+    log_info("Heap initialized at 0x200000, size 1MB");
     /* 3. Initialize and remap the Programmable Interrupt Controller (PIC)
      *    This ensures hardware IRQs don't collide with CPU exceptions. */
     pic_init();
@@ -91,6 +93,56 @@ void kernel_main()
 
     /* 8. Kernel idle loop - hlt saves power between interrupts. */
     log_info("Boot sequence complete. Entering kernel idle loop.");
+
+    // Add this in kernel_main() before the idle loop:
+
+    /* 9. Test dynamic memory allocation */
+    log_info("Testing kmalloc...");
+
+    // Test 1: basic allocation
+    uint32_t *a = (uint32_t *)kmalloc(sizeof(uint32_t) * 4);
+    if (a == NULL)
+    {
+        log_info("  [FAIL] kmalloc returned NULL!");
+    }
+    else
+    {
+        log_info("  [PASS] kmalloc returned address: 0x%x", (uint32_t)a);
+    }
+
+    // Test 2: write and read back
+    a[0] = 0xDEADBEEF;
+    a[1] = 0xCAFEBABE;
+    if (a[0] == 0xDEADBEEF && a[1] == 0xCAFEBABE)
+    {
+        log_info("  [PASS] Write/read back correct: 0x%x 0x%x", a[0], a[1]);
+    }
+    else
+    {
+        log_info("  [FAIL] Memory corruption detected!");
+    }
+
+    // Test 3: two allocations don't overlap
+    uint32_t *b = (uint32_t *)kmalloc(sizeof(uint32_t) * 4);
+    if (b == NULL)
+    {
+        log_info("  [FAIL] second kmalloc returned NULL!");
+    }
+    else if (b == a)
+    {
+        log_info("  [FAIL] both allocs returned same address!");
+    }
+    else
+    {
+        log_info("  [PASS] Two allocs at different addresses: 0x%x and 0x%x", (uint32_t)a, (uint32_t)b);
+    }
+
+    // Test 4: free and reallocate
+    kfree(a);
+    uint32_t *c = (uint32_t *)kmalloc(sizeof(uint32_t) * 4);
+    log_info("  After free, new alloc at: 0x%x (should reuse 0x%x)", (uint32_t)c, (uint32_t)a);
+
+    run_all_tests(); // Run the comprehensive test suite for all kernel phases
     for (;;)
         __asm__ volatile("hlt");
 }
