@@ -1,6 +1,7 @@
 #include "drivers/vga/vga.h"
 #include "lib/printf.h"
 #include "log/log.h"
+#include "gdt_and_idt/idt.h" // Include the IDT header
 #include "pic/pic.h"
 #include "pit/pit.h"
 #include "time/time.h"
@@ -18,28 +19,27 @@ extern void isr14_stub(); /* INT 0x0E - Page Fault            */
 extern void irq0_stub();  /* INT 0x20 - PIT Timer (IRQ0)      */
 
 /* ---------------------------------------------------------------
- * IDT - built in Phase 2, declared here so we can install stubs.
- * Replace this block with your actual idt_set_gate() / idt_load()
- * calls once your IDT code is written.
- * --------------------------------------------------------------- */
-// idt_set_gate(0,  (uint32_t)isr0_stub,  0x08, 0x8E);
-// idt_set_gate(8,  (uint32_t)isr8_stub,  0x08, 0x8E);
-// idt_set_gate(13, (uint32_t)isr13_stub, 0x08, 0x8E);
-// idt_set_gate(14, (uint32_t)isr14_stub, 0x08, 0x8E);
-// idt_set_gate(32, (uint32_t)irq0_stub,  0x08, 0x8E); /* 0x20 = 32 */
-// idt_load();
-
-/* ---------------------------------------------------------------
  * A simple busy-wait using the tick counter as a time source.
  * Waits until `ms` milliseconds worth of ticks have passed.
  * At 100 Hz, 1 tick = 10 ms, so ms is rounded to the nearest 10.
  * --------------------------------------------------------------- */
 static void sleep_ms(uint32_t ms)
 {
-    uint64_t start = time_get_ticks();
-    uint64_t target = start + (ms / 10); /* 100 Hz -> 1 tick per 10 ms */
-    while (time_get_ticks() < target)
-        __asm__ volatile("hlt"); /* sleep until next interrupt */
+    // Use the actual PIT frequency for more accurate sleep calculations
+    uint32_t pit_hz = pit_get_frequency();
+    if (pit_hz == 0) {
+        // Fallback or error if PIT not initialized or frequency is 0
+        // For now, a simple busy loop, but ideally would use a working timer.
+        for (volatile uint32_t i = 0; i < ms * 1000; i++); // Very rough busy-wait
+        return;
+    }
+    
+    uint64_t start_ticks = time_get_ticks();
+    // Calculate target ticks: (ms / 1000) * pit_hz = (ms * pit_hz) / 1000
+    uint64_t target_ticks = start_ticks + (uint64_t)ms * pit_hz / 1000;
+
+    while (time_get_ticks() < target_ticks)
+        __asm__ volatile("hlt"); /* hlt saves power between interrupts */
 }
 
 /* ---------------------------------------------------------------
@@ -53,34 +53,40 @@ void kernel_main()
     vga_init();
     log_info("Kernel booting...");
 
-    /* 2. Remap the PIC so hardware IRQs don't collide with CPU exceptions */
+    /* 2. Initialize the Global Descriptor Table (GDT) if not already done by bootloader.
+     *    (Assuming GDT is handled before kernel_main or is minimalistic) */
+    // gdt_init(); // Uncomment if your GDT requires C-level initialization here.
+
+    /* 3. Initialize and remap the Programmable Interrupt Controller (PIC)
+     *    This ensures hardware IRQs don't collide with CPU exceptions. */
     pic_init();
-    log_info("PIC remapped: IRQ0-7 -> INT 0x20-0x27, IRQ8-15 -> INT 0x28-0x2F");
 
-    /* 3. Install ISR stubs into the IDT (Phase 2 code goes here)
-     *    Uncomment the idt_set_gate / idt_load calls above once your
-     *    IDT implementation is ready. */
-    log_info("IDT stubs ready (install via idt_set_gate in Phase 2)");
+    /* 4. Initialize the Interrupt Descriptor Table (IDT).
+     *    This sets up all CPU exception handlers and hardware IRQ stubs. */
+    idt_init();
+    log_info("Interrupt Descriptor Table (IDT) initialized.");
 
-    /* 4. Configure the PIT to fire IRQ0 at 100 Hz
-     *    Each tick calls irq0_timer_handler -> time_set_ticks(ticks + 1) */
-    pit_init(100);
-    log_info("PIT configured: 100 Hz (1 tick = 10 ms)");
+    /* 5. Configure the Programmable Interval Timer (PIT) to fire IRQ0.
+     *    Each tick calls irq0_timer_handler -> time_set_ticks(ticks + 1). */
+    uint32_t desired_pit_freq = 100; // 100 Hz
+    pit_init(desired_pit_freq);
+    log_info("PIT configured to %d Hz.", pit_get_frequency());
 
-    /* 5. Enable interrupts - from this point the timer starts ticking */
+    /* 6. Enable interrupts - from this point the timer starts ticking and
+     *    other hardware interrupts (like keyboard) can be processed. */
     __asm__ volatile("sti");
-    log_info("Interrupts enabled. Tick counter is live.");
+    log_info("Interrupts enabled globally. System tick counter is active.");
 
-    /* 6. Show the tick counter incrementing so you can confirm it works */
-    log_info("Watching ticks for 5 seconds...");
+    /* 7. Show the tick counter incrementing so you can confirm it works */
+    log_info("Watching system ticks for 5 seconds...");
     for (int i = 0; i < 5; i++)
     {
         sleep_ms(1000);
-        log_info("  tick = %d", (int)time_get_ticks());
+        log_info("  System ticks: %d", (int)time_get_ticks());
     }
 
-    /* 7. Kernel idle loop - hlt saves power between interrupts */
-    log_info("Boot complete. Entering idle loop.");
+    /* 8. Kernel idle loop - hlt saves power between interrupts. */
+    log_info("Boot sequence complete. Entering kernel idle loop.");
     for (;;)
         __asm__ volatile("hlt");
 }

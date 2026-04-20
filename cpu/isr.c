@@ -2,6 +2,7 @@
 #include "../log/log.h"
 #include "../time/time.h"
 #include "../pic/pic.h"
+#include "../kernel/panic.h" // Include kernel/panic.h for kernel_panic
 
 /*
  * isr_unhandled_interrupt
@@ -29,9 +30,7 @@ void isr_unhandled_interrupt(registers_t *regs)
  */
 void isr_divide_by_zero(registers_t *regs)
 {
-    log_fatal("EXCEPTION #0: Divide By Zero at EIP=0x%x (CS:0x%x)", regs->eip, regs->cs);
-    log_fatal("  Attempted division by zero detected. System halting.");
-    __asm__ volatile("cli; hlt"); // Disable interrupts and halt CPU
+    kernel_panic("EXCEPTION #0: Divide By Zero", regs);
 }
 
 /*
@@ -42,9 +41,7 @@ void isr_divide_by_zero(registers_t *regs)
  */
 void isr_invalid_opcode(registers_t *regs)
 {
-    log_fatal("EXCEPTION #6: Invalid Opcode at EIP=0x%x (CS:0x%x)", regs->eip, regs->cs);
-    log_fatal("  The CPU attempted to execute an invalid instruction. System halting.");
-    __asm__ volatile("cli; hlt"); // Disable interrupts and halt CPU
+    kernel_panic("EXCEPTION #6: Invalid Opcode", regs);
 }
 
 /*
@@ -56,10 +53,7 @@ void isr_invalid_opcode(registers_t *regs)
  */
 void isr_double_fault(registers_t *regs)
 {
-    log_fatal("EXCEPTION #8: Double Fault (Error Code: 0x%x) at EIP=0x%x (CS:0x%x)",
-              regs->err_code, regs->eip, regs->cs);
-    log_fatal("  A critical exception occurred while handling another exception. This is unrecoverable.");
-    __asm__ volatile("cli; hlt"); // Disable interrupts and halt CPU
+    kernel_panic("EXCEPTION #8: Double Fault", regs);
 }
 
 /*
@@ -71,17 +65,10 @@ void isr_double_fault(registers_t *regs)
  */
 void isr_general_protection(registers_t *regs)
 {
-    log_fatal("EXCEPTION #13: General Protection Fault (Error Code: 0x%x) at EIP=0x%x (CS:0x%x)",
-              regs->err_code, regs->eip, regs->cs);
-    log_fatal("  Possible causes: segment violation, privilege error, or invalid memory access.");
-
-    // Further analysis of err_code can be done here to pinpoint the cause
-    // e.g., external/internal, GDT/LDT, index.
-    if (regs->err_code & 0x1) log_fatal("    - External event");
-    if (regs->err_code & 0x2) log_fatal("    - IDT");
-    if (regs->err_code & 0x4) log_fatal("    - GDT");
-
-    __asm__ volatile("cli; hlt"); // Disable interrupts and halt CPU
+    // The previous logging provided specific details. kernel_panic will now
+    // print general info and the registers. Specific details about GPF
+    // error code flags should be handled within kernel_panic if desired.
+    kernel_panic("EXCEPTION #13: General Protection Fault", regs);
 }
 
 /*
@@ -94,28 +81,10 @@ void isr_general_protection(registers_t *regs)
  */
 void isr_page_fault(registers_t *regs)
 {
-    uint32_t fault_addr;
-    __asm__ volatile("mov %%cr2, %0" : "=r"(fault_addr));
-
-    int present = regs->err_code & 0x01;  // P = 0 means page not present, P = 1 means protection violation
-    int write = regs->err_code & 0x02;    // W = 0 means read access, W = 1 means write access
-    int user = regs->err_code & 0x04;     // U = 0 means kernel mode, U = 1 means user mode
-    int reserved = regs->err_code & 0x08; // R = 1 means reserved bits overwritten
-    int instruction_fetch = regs->err_code & 0x10; // I = 1 means fault was during instruction fetch
-
-    log_fatal("EXCEPTION #14: Page Fault at LINEAR_ADDR=0x%x, EIP=0x%x (CS:0x%x)",
-              fault_addr, regs->eip, regs->cs);
-    log_fatal("  Error Code: 0x%x (Flags: %s %s %s %s %s)",
-              regs->err_code,
-              present ? "PROTECTION-VIOLATION" : "PAGE-NOT-PRESENT",
-              write ? "WRITE-ACCESS" : "READ-ACCESS",
-              user ? "USER-MODE" : "KERNEL-MODE",
-              reserved ? "RESERVED-BITS-OVERWRITTEN" : "",
-              instruction_fetch ? "INSTRUCTION-FETCH" : "");
-
-    // In a full kernel, this would involve memory allocation (demand paging)
-    // or killing the process. For now, it's a fatal error.
-    __asm__ volatile("cli; hlt"); // Disable interrupts and halt CPU
+    // The previous logging provided specific details. kernel_panic will now
+    // print general info and the registers. Specific details about Page Fault
+    // error code flags should be handled within kernel_panic if desired.
+    kernel_panic("EXCEPTION #14: Page Fault", regs);
 }
 
 /*
